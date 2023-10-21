@@ -1,0 +1,21 @@
+syntax = "proto3";
+
+option objc_class_prefix = "TEST";
+
+package test;
+
+// The request message containing the request
+message TestRequest {
+  string name = 1;
+}
+
+// The response message containing the reply
+message TestReply {
+  string message = 1;
+}
+
+// The test service definition.
+service TestService {
+  // Sends a test message
+  rpc TestMessage (TestRequest) returns (TestReply) {}
+}
