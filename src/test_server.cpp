@@ -18,9 +18,9 @@ using grpc::Status;
 
 ABSL_FLAG(uint16_t, port, 50051, "Server port for the service");
 
-class ServiceImpl final : public grpc::Service
+class ServiceImpl final : public test::TestService:: Service
 {
-	grpc::Status TestMessage(grpc::ServerContext* context, const test::TestRequest* request, test::TestReply* response)
+	virtual ::grpc::Status TestMessage(grpc::ServerContext* context, const test::TestRequest* request, test::TestReply* response) override
 	{
 		std::cout << "Received request from " << request->name();
 		std::string prefix("Hello ");
@@ -30,7 +30,7 @@ class ServiceImpl final : public grpc::Service
 };
 
 void RunServer(uint16_t port) {
-	std::string server_address = absl::StrFormat("0.0.0.0:%d", port);
+	std::string server_address = absl::StrFormat("127.0.0.1:%d", port);
 	ServiceImpl service;
 
 	grpc::EnableDefaultHealthCheckService(true);
