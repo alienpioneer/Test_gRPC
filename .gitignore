@@ -1,5 +1,8 @@
 
 .vs/
 out/
-
 CMakeSettings.json
+proto/test.grpc.pb.cc
+proto/test.grpc.pb.h
+proto/test.pb.cc
+proto/test.pb.h
