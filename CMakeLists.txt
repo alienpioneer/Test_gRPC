@@ -8,13 +8,18 @@ else()
   add_definitions(-D_WIN32_WINNT=0x600)
 endif()
 
-# -------------------  Setup paths
-include_directories("./proto")
-set(PROTO_FILE_NAME "test")
-
 set(CMAKE_MODULE_PATH "D:/_DEV_PROJECTS/DEV_LIBRARIES/build_grpc/install/;C:/Program Files (x86)/grpc/")
 set(CMAKE_PREFIX_PATH "D:/_DEV_PROJECTS/DEV_LIBRARIES/build_grpc/install/;C:/Program Files (x86)/grpc/")
 set(CMAKE_PROGRAM_PATH "D:/_DEV_PROJECTS/DEV_LIBRARIES/build_grpc/install/bin")
+
+set(PROTO_FILE_NAME "test")
+set(_PROTOBUF_LIBPROTOBUF protobuf::libprotobuf)
+
+set(_GRPC_GRPCPP gRPC::grpc++)
+set(_REFLECTION gRPC::grpc++_reflection)
+
+#include_directories("./proto")
+#include_directories("./proto")
 
 find_program(_PROTOBUF_PROTOC protoc)
 find_program(_GRPC_CPP_PLUGIN_EXECUTABLE grpc_cpp_plugin)
@@ -26,13 +31,9 @@ option(protobuf_MODULE_COMPATIBLE TRUE)
 find_package(Protobuf CONFIG REQUIRED)
 message(STATUS "Using protobuf ${Protobuf_VERSION}")
 
-set(_PROTOBUF_LIBPROTOBUF protobuf::libprotobuf)
-set(_REFLECTION gRPC::grpc++_reflection)
-
 # Find gRPC installation - Looks for gRPCConfig.cmake file installed by gRPC's cmake installation.
 find_package(gRPC CONFIG REQUIRED)
 message(STATUS "Using gRPC ${gRPC_VERSION}")
-set(_GRPC_GRPCPP gRPC::grpc++)
 
 # -------------------  Generate sources from proto file
 get_filename_component(proto "proto/${PROTO_FILE_NAME}.proto" ABSOLUTE)
@@ -53,13 +54,16 @@ add_custom_command(
            "${proto}"
       DEPENDS "${proto}")
 # -------------------  Generate sources from proto file END
-# grpc_proto
+
+# grpc_proto library
 add_library(grpc_proto ${grpc_srcs} ${grpc_hdrs} ${proto_srcs} ${proto_hdrs})
 target_link_libraries(grpc_proto ${_REFLECTION} ${_GRPC_GRPCPP} ${_PROTOBUF_LIBPROTOBUF})
 
 # Build sources
 add_executable( test_server "src/test_server.cpp")
+target_include_directories(test_server PUBLIC ${proto_path})
 target_link_libraries(test_server grpc_proto absl::flags absl::flags_parse ${_REFLECTION} ${_GRPC_GRPCPP} ${_PROTOBUF_LIBPROTOBUF})
 
 add_executable( test_client "src/test_client.cpp")
+target_include_directories(test_client PUBLIC ${proto_path})
 target_link_libraries(test_client grpc_proto absl::flags absl::flags_parse ${_REFLECTION} ${_GRPC_GRPCPP} ${_PROTOBUF_LIBPROTOBUF})

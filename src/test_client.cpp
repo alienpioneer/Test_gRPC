@@ -60,9 +60,12 @@ int main(int argc, char** argv)
     // the argument "--target=" which is the only expected argument.
     std::string target_str = absl::GetFlag(FLAGS_server);
     std::cout << "Target: " << target_str << std::endl;
+
     // We indicate that the channel isn't authenticated (use of
     // InsecureChannelCredentials()).
-    TestClient client(grpc::CreateChannel(target_str, grpc::InsecureChannelCredentials()));
+    //TestClient client(grpc::CreateChannel(target_str, grpc::InsecureChannelCredentials()));
+    TestClient client(grpc::CreateChannel("127.0.0.1:50051", grpc::InsecureChannelCredentials()));
+
     std::string user("test_client");
     std::string reply = client.rpcTest(user);
     std::cout << "Received reply: " << reply << std::endl;
