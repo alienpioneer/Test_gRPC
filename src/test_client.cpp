@@ -2,16 +2,8 @@
 #include <memory>
 #include <string>
 
-#include "absl/flags/flag.h"
-#include "absl/flags/parse.h"
 #include <grpcpp/grpcpp.h>
 #include "test.grpc.pb.h"
-
-using grpc::Channel;
-using grpc::ClientContext;
-using grpc::Status;
-
-ABSL_FLAG(std::string, server, "127.0.0.1:50051", "Server address");
 
 class TestClient {
 public:
@@ -31,7 +23,7 @@ public:
 
         // Context for the client. It could be used to convey extra information to
         // the server and/or tweak certain RPC behaviors.
-        ClientContext context;
+        grpc::ClientContext context;
 
         // The actual RPC.
         grpc::Status status = m_grpc_stub->TestMessage(&context, request, &reply);
@@ -54,20 +46,12 @@ private:
 
 int main(int argc, char** argv) 
 {
-    absl::ParseCommandLine(argc, argv);
-    // Instantiate the client. It requires a channel, out of which the actual RPCs
-    // are created. This channel models a connection to an endpoint specified by
-    // the argument "--target=" which is the only expected argument.
-    std::string target_str = absl::GetFlag(FLAGS_server);
+    std::string target_str = "127.0.0.1:50051";
     std::cout << "Target: " << target_str << std::endl;
 
-    // We indicate that the channel isn't authenticated (use of
-    // InsecureChannelCredentials()).
-    //TestClient client(grpc::CreateChannel(target_str, grpc::InsecureChannelCredentials()));
-    TestClient client(grpc::CreateChannel("127.0.0.1:50051", grpc::InsecureChannelCredentials()));
+    TestClient client(grpc::CreateChannel(target_str, grpc::InsecureChannelCredentials()));
 
-    std::string user("test_client");
-    std::string reply = client.rpcTest(user);
+    std::string reply = client.rpcTest("test_client");
     std::cout << "Received reply: " << reply << std::endl;
 
     std::getchar();
