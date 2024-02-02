@@ -5,6 +5,8 @@
 #include <grpcpp/grpcpp.h>
 #include "test.grpc.pb.h"
 
+std::string server_addr = "127.0.0.1:50051";
+
 class TestClient {
 public:
     TestClient(std::shared_ptr<grpc::Channel> channel)
@@ -28,14 +30,14 @@ public:
         std::unique_ptr<grpc::ClientAsyncResponseReader<test::TestReply> > rpc(m_grpc_stub->AsyncTestMessage(&context, request, &queue));
 
         grpc::Status status;
-
+        std::cout << "Sending request: "  << request.name() << "\n";
         rpc->Finish(&reply, &status, (void*)1);
 
         void* got_tag;
         bool ok = false;
         queue.Next(&got_tag, &ok);
 
-        if (ok && got_tag == (void*)1) 
+        if (ok && got_tag == (void*)1)
         {
             // Act upon its status.
             if (status.ok())
@@ -44,7 +46,7 @@ public:
             }
             else
             {
-                std::cout << status.error_code() << ": " << status.error_message() << std::endl;
+                std::cout << status.error_code() << ": " << status.error_message() << "\n";
                 return "RPC failed";
             }
         }
@@ -56,12 +58,9 @@ private:
 
 int main(int argc, char** argv)
 {
-    std::string target_str = "127.0.0.1:50051";
-    std::cout << "Target: " << target_str << std::endl;
+    std::cout << "Connecting to : " << server_addr << std::endl;
 
-    TestClient client(grpc::CreateChannel(target_str, grpc::InsecureChannelCredentials()));
-
-    std::this_thread::sleep_for(std::chrono::milliseconds(3000));
+    TestClient client(grpc::CreateChannel(server_addr, grpc::InsecureChannelCredentials()));
 
     std::string reply = client.rpcTest("test_async_client");
     std::cout << "Received reply: " << reply << std::endl;

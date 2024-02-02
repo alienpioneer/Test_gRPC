@@ -29,9 +29,12 @@ public:
 		if (m_status == Status::PROCESS)
 		{
 			test::TestReply response;
-			std::cout << "Received request from " << m_request.name() << "\n";
+			std::cout << "Received request \"" << m_request.name() << "\"\n";
 			std::string prefix("Hello ");
 			response.set_message(prefix + m_request.name());
+
+			// Delay the response
+			std::this_thread::sleep_for(std::chrono::milliseconds(6000));
 
 			m_responder.Finish(response, grpc::Status::OK, (void*)m_tag);
 			m_status = Status::FINISH;
@@ -39,7 +42,7 @@ public:
 		}
 		else if (m_status == Status::FINISH)
 		{
-			std::cout << "Finnished request from " << m_request.name() << "\n";
+			std::cout << "Finnished the request \"" << m_request.name() << "\"\n";
 			return true;
 		}
 	}
@@ -95,7 +98,8 @@ public:
 		bool ok;
 		createNewRequest();
 
-		while (true) {
+		while (true) 
+		{
 			// Block waiting to read the next event from the completion queue.
 			// The return value of Next should always be checked. This return value
 			// tells us whether there is any kind of event or m_serverQueue is shutting down.
