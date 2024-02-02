@@ -19,22 +19,34 @@ public:
         // Container for the data we expect from the server.
         test::TestReply reply;
 
-        // Context for the client. It could be used to convey extra information to
+        // Context for the client. It could be used to convey extra information to0
         // the server and/or tweak certain RPC behaviors.
         grpc::ClientContext context;
 
-        // The actual RPC.
-        grpc::Status status = m_grpc_stub->TestMessage(&context, request, &reply);
+        grpc::CompletionQueue queue;
+        // The actual async RPC
+        std::unique_ptr<grpc::ClientAsyncResponseReader<test::TestReply> > rpc(m_grpc_stub->AsyncTestMessage(&context, request, &queue));
 
-        // Act upon its status.
-        if (status.ok())
+        grpc::Status status;
+
+        rpc->Finish(&reply, &status, (void*)1);
+
+        void* got_tag;
+        bool ok = false;
+        queue.Next(&got_tag, &ok);
+
+        if (ok && got_tag == (void*)1) 
         {
-            return reply.message();
-        }
-        else
-        {
-            std::cout << status.error_code() << ": " << status.error_message() << std::endl;
-            return "RPC failed";
+            // Act upon its status.
+            if (status.ok())
+            {
+                return reply.message();
+            }
+            else
+            {
+                std::cout << status.error_code() << ": " << status.error_message() << std::endl;
+                return "RPC failed";
+            }
         }
     }
 
@@ -48,6 +60,8 @@ int main(int argc, char** argv)
     std::cout << "Target: " << target_str << std::endl;
 
     TestClient client(grpc::CreateChannel(target_str, grpc::InsecureChannelCredentials()));
+
+    std::this_thread::sleep_for(std::chrono::milliseconds(3000));
 
     std::string reply = client.rpcTest("test_async_client");
     std::cout << "Received reply: " << reply << std::endl;
