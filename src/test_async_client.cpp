@@ -12,48 +12,58 @@ public:
     TestClient(std::shared_ptr<grpc::Channel> channel)
         : m_grpc_stub(test::TestService::NewStub(channel)) {}
 
-    std::string rpcTest(const std::string user)
+    void rpcTest(const std::string user)
     {
         // Data we are sending to the server.
         test::TestRequest request;
         request.set_name(user);
 
         // Container for the data we expect from the server.
-        test::TestReply reply;
+        AsyncReply* asyncReply = new AsyncReply();
 
-        // Context for the client. It could be used to convey extra information to0
-        // the server and/or tweak certain RPC behaviors.
-        grpc::ClientContext context;
-
-        grpc::CompletionQueue queue;
         // The actual async RPC
-        std::unique_ptr<grpc::ClientAsyncResponseReader<test::TestReply> > rpc(m_grpc_stub->AsyncTestMessage(&context, request, &queue));
+        std::unique_ptr<grpc::ClientAsyncResponseReader<test::TestReply> > responseReader =
+            m_grpc_stub->PrepareAsyncTestMessage(&asyncReply->context, request, &m_queue);
 
-        grpc::Status status;
         std::cout << "Sending request: "  << request.name() << "\n";
-        rpc->Finish(&reply, &status, (void*)1);
+        responseReader->StartCall();
+        responseReader->Finish(&asyncReply->reply, &asyncReply->status, (void*)asyncReply);
+    }
 
-        void* got_tag;
-        bool ok = false;
-        queue.Next(&got_tag, &ok);
+    void processQueue()
+    {
+        void* received_tag;
+        bool received_ok = false;
 
-        if (ok && got_tag == (void*)1)
+        while (m_queue.Next(&received_tag, &received_ok))
         {
-            // Act upon its status.
-            if (status.ok())
+            if (received_ok)
             {
-                return reply.message();
-            }
-            else
-            {
-                std::cout << status.error_code() << ": " << status.error_message() << "\n";
-                return "RPC failed";
+                AsyncReply* reply = static_cast<AsyncReply*>(received_tag);
+                // Act upon its status.
+                if (reply->status.ok())
+                {
+                    std::cout << "Received reply: " << reply->reply.message() << std::endl;
+                }
+                else
+                {
+                    std::cout << "RPC failed  " << reply->status.error_code() << ": " << reply->status.error_message() << "\n";
+                }
             }
         }
     }
 
 private:
-    std::unique_ptr<test::TestService::Stub> m_grpc_stub;
+    struct AsyncReply 
+    {
+        grpc::Status        status;
+        test::TestReply     reply;
+        grpc::ClientContext context;
+    };
+
+private:
+    std::unique_ptr<test::TestService::Stub>    m_grpc_stub;
+    grpc::CompletionQueue                       m_queue;
 };
 
 int main(int argc, char** argv)
@@ -62,10 +72,15 @@ int main(int argc, char** argv)
 
     TestClient client(grpc::CreateChannel(server_addr, grpc::InsecureChannelCredentials()));
 
-    std::string reply = client.rpcTest("test_async_client");
-    std::cout << "Received reply: " << reply << std::endl;
+    // Spawn reader thread that loops indefinitely
+    std::thread mThread = std::thread(&TestClient::processQueue, &client);
 
-    std::getchar();
+    for (auto i = 1; i < 20; i++)
+    {
+        client.rpcTest("test_async_client"+std::to_string(i));
+    }
+    
+    mThread.join();
 
     return 0;
 }

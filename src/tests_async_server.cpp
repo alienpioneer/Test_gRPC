@@ -14,12 +14,10 @@ std::string server_address = "127.0.0.1:50051";
 class AsyncRpcRequest
 {
 public:
-	AsyncRpcRequest(test::TestService::AsyncService* service, grpc::ServerCompletionQueue* serverQueue)
+	AsyncRpcRequest(test::TestService::AsyncService* service, grpc::ServerCompletionQueue& serverQueue)
 		: m_responder(&m_context), m_status (Status::CREATE)
 	{
-		m_tag = std::chrono::steady_clock::now().time_since_epoch().count();
-
-		service->RequestTestMessage(&m_context, &m_request, &m_responder, serverQueue, serverQueue, (void*)m_tag);
+		service->RequestTestMessage(&m_context, &m_request, &m_responder, &serverQueue, &serverQueue, (void*)this);
 
 		m_status = Status::PROCESS;
 	}
@@ -34,9 +32,9 @@ public:
 			response.set_message(prefix + m_request.name());
 
 			// Delay the response
-			std::this_thread::sleep_for(std::chrono::milliseconds(6000));
+			std::this_thread::sleep_for(std::chrono::milliseconds(3000));
 
-			m_responder.Finish(response, grpc::Status::OK, (void*)m_tag);
+			m_responder.Finish(response, grpc::Status::OK, (void*)this);
 			m_status = Status::FINISH;
 			return false;
 		}
@@ -47,23 +45,22 @@ public:
 		}
 	}
 
-	const long long getTag() const
-	{
-		return m_tag;
-	}
-
 private:
 	grpc::ServerContext									m_context;
 	test::TestRequest									m_request;
 	grpc::ServerAsyncResponseWriter<test::TestReply>	m_responder;
-	long long											m_tag;
 	enum class Status { CREATE, PROCESS, FINISH }		m_status;
 };
 
 class AsyncServer final 
 {	
 public:
-	AsyncServer(){}
+	AsyncServer()
+	{
+		grpc::EnableDefaultHealthCheckService(true);
+		grpc::reflection::InitProtoReflectionServerBuilderPlugin();
+	}
+
 	~AsyncServer()
 	{
 		m_server->Shutdown();
@@ -73,9 +70,6 @@ public:
 	void run() 
 	{
 		grpc::ServerBuilder builder;
-
-		grpc::EnableDefaultHealthCheckService(true);
-		grpc::reflection::InitProtoReflectionServerBuilderPlugin();
 
 		builder.AddListeningPort(server_address, grpc::InsecureServerCredentials());
 
@@ -87,52 +81,47 @@ public:
 		m_server = builder.BuildAndStart();
 		std::cout << "Server listening on " << server_address << std::endl;
 
-		// Proceed to the server's main loop.
-		HandleRpcRequests();
+		// Create a default request reservation
+		new AsyncRpcRequest(&m_asyncService, *m_serverQueue);
+		handleRpcRequests();
 	}
 
 	// This can be run in multiple threads if needed.
-	void HandleRpcRequests()
+	void handleRpcRequests()
 	{
 		void* tag;  // uniquely identifies a request.
 		bool ok;
-		createNewRequest();
 
-		while (true) 
+		// Block waiting to read the next event from the completion queue.
+		// The return value of Next should always be checked. This return value
+		// tells us whether there is any kind of event or m_serverQueue is shutting down.
+		while (m_serverQueue->Next(&tag, &ok))
 		{
-			// Block waiting to read the next event from the completion queue.
-			// The return value of Next should always be checked. This return value
-			// tells us whether there is any kind of event or m_serverQueue is shutting down.
-			if (m_serverQueue->Next(&tag, &ok) && ok)
+			AsyncRpcRequest* request = static_cast<AsyncRpcRequest*>(tag);
+
+				// If true, the AsyncRpcRequest is finnished and ok to delete
+			if (request->processRpcRequest())
 			{
-				if ( m_requestList.find((long long)tag) != m_requestList.end())
-				{
-					// If true, the AsyncRpcRequest is finnished and ok to delete
-					if (m_requestList.at((long long)tag)->processRpcRequest())
-					{
-						delete m_requestList.at((long long)tag);
-						m_requestList.erase((long long)tag);
-					}
-				}
-				else
-				{
-					createNewRequest();
-				}
+				delete request;
+			}
+			else
+			{
+				new AsyncRpcRequest(&m_asyncService, *m_serverQueue);
 			}
 		}
 	}
 
-	void createNewRequest()
+private:
+
+	void createNewServiceRequest()
 	{
-		AsyncRpcRequest* request = new AsyncRpcRequest( &m_asyncService, m_serverQueue.get() );
-		m_requestList[request->getTag()] = request;
+		
 	}
 
 private:
 	std::unique_ptr<grpc::ServerCompletionQueue>	m_serverQueue;
 	test::TestService::AsyncService					m_asyncService;
 	std::unique_ptr<grpc::Server>					m_server;
-	std::unordered_map<long long, AsyncRpcRequest*>	m_requestList;
 };
 
 
