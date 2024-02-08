@@ -14,7 +14,7 @@ public:
     TestClient(std::shared_ptr<grpc::Channel> channel)
         : m_grpc_stub(test::TestService::NewStub(channel)) {}
 
-    void rpcTest(const std::string user)
+    void sendRpcTestRequest(const std::string user)
     {
         // Data we are sending to the server.
         test::TestRequest request;
@@ -105,7 +105,8 @@ int main(int argc, char** argv)
     for (auto i = 1; i < 5; i++)
     {
         std::this_thread::sleep_for(std::chrono::milliseconds(3000));
-        client.rpcTest("test_async_client"+std::to_string(i));
+        // The actual RPC call
+        client.sendRpcTestRequest("test_async_client"+std::to_string(i));
     }
     
     mThread.join();
