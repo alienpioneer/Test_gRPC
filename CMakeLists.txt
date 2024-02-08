@@ -60,10 +60,12 @@ add_library(grpc_proto ${grpc_srcs} ${grpc_hdrs} ${proto_srcs} ${proto_hdrs})
 target_link_libraries(grpc_proto ${_REFLECTION} ${_GRPC_GRPCPP} ${_PROTOBUF_LIBPROTOBUF})
 
 # Build sources
-add_executable( test_server "src/test_server.cpp")
+#add_executable( test_server "src/test_server.cpp")
+add_executable( test_server "src/tests_async_server.cpp")
 target_include_directories(test_server PUBLIC ${proto_path})
 target_link_libraries(test_server grpc_proto absl::flags absl::flags_parse ${_REFLECTION} ${_GRPC_GRPCPP} ${_PROTOBUF_LIBPROTOBUF})
 
-add_executable( test_client "src/test_client.cpp")
+#add_executable( test_client "src/test_client.cpp")
+add_executable( test_client "src/test_async_client.cpp")
 target_include_directories(test_client PUBLIC ${proto_path})
 target_link_libraries(test_client grpc_proto absl::flags absl::flags_parse ${_REFLECTION} ${_GRPC_GRPCPP} ${_PROTOBUF_LIBPROTOBUF})
