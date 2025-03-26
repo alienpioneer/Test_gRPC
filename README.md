@@ -1,4 +1,4 @@
-# Test gRPC test on Windows
+# GRPC test on Windows
 
 Simple project that tests google gRPC on Windows in both synchronous and asynchronous modes.
 Build and install gRPC first then simply build the client and the server. Tested with MSVC for Visual Studio Community 2019.
